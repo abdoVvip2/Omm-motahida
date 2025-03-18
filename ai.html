@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نائب دولة - دردشة الذكاء الاصطناعي</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            background-color: #0057B8; /* أزرق الأمم المتحدة */
+            color: white;
+        }
+        #chatbox { 
+            width: 80%; 
+            height: 400px; 
+            border: 2px solid #FFD700; /* أصفر الأمم المتحدة */
+            padding: 10px; 
+            overflow-y: auto; 
+            margin: 10px auto; 
+            background: white; 
+            color: black;
+            border-radius: 10px;
+        }
+        #userInput { 
+            width: 70%; 
+            padding: 10px; 
+            border: 2px solid #FFD700;
+            border-radius: 5px;
+        }
+        button { 
+            padding: 10px; 
+            cursor: pointer; 
+            background-color: #FFD700; 
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>نائب دولة - دردشة الذكاء الاصطناعي</h1>
+    <div id="chatbox"></div>
+    <input type="text" id="userInput" placeholder="اسأل شيئًا...">
+    <button onclick="sendMessage()">إرسال</button>
+
+    <script>
+        const apiKey = 'AIzaSyDTmHB9SRj47W8KBkn1SzD7-beJRcq284E';
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        const chatbox = document.getElementById('chatbox');
+        
+        async function sendMessage() {
+            const userInput = document.getElementById('userInput').value;
+            if (!userInput) return;
+            
+            chatbox.innerHTML += `<p><strong>أنت:</strong> ${userInput}</p>`;
+            document.getElementById('userInput').value = '';
+            
+            let botResponse = 'جارٍ المعالجة...';
+            if (/اسمك|من (أنت|انت)|ما اسمك|تعريف عنك/i.test(userInput)) {
+                botResponse = 'نائب دولتك سيدي';
+            } else {
+                const requestData = {
+                    contents: [{
+                        parts: [{ text: userInput }]
+                    }]
+                };
+                
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestData)
+                    });
+                    
+                    const data = await response.json();
+                    botResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'لا يوجد رد متاح حاليًا';
+                } catch (error) {
+                    console.error('Error:', error);
+                    botResponse = 'حدث خطأ أثناء جلب البيانات';
+                }
+            }
+            
+            chatbox.innerHTML += `<p><strong>نائب دولة:</strong> ${botResponse}</p>`;
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+    </script>
+</body>
+</html>

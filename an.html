@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>معلومات الدول المختارة</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+  <style>
+    body { font-family: 'Noto Sans Arabic', sans-serif; }
+  </style>
+</head>
+<body class="bg-gray-100 p-4">
+  <div class="container mx-auto">
+    <h1 class="text-3xl font-bold text-center mb-6">معلومات الدول المختارة</h1>
+    <div class="mb-4">
+      <select id="countrySelect" class="w-full p-2 border border-gray-300 rounded">
+        <option value="">اختر دولة</option>
+      </select>
+    </div>
+    <div id="userInfoContainer" class="bg-white p-4 rounded shadow"></div>
+  </div>
+
+  <script>
+    // إعداد Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyD2lR-GIwXkmjb2D_kYumcYgXrUIZP6ASo",
+      authDomain: "professor-school-website.firebaseapp.com",
+      projectId: "professor-school-website",
+      storageBucket: "professor-school-website.firestorage.app",
+      messagingSenderId: "302841421596",
+      appId: "1:302841421596:web:1de713be7515ea22a3a4d9"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const firestore = firebase.firestore();
+    const database = firebase.database();
+
+    // الدخل الثابت لكل أصل
+    const fixedAssetIncomes = {
+      'منجم_ذهب': 9000000,
+      'منجم_فضة': 4500000,
+      'بئر_نفط': 12000000,
+      'حقل_غاز_طبيعي': 10000000,
+      'منجم_فوسفاط': 6000000,
+      'مزرعة_القمح': 2800000,
+      'محطة_طاقة_شمسية': 7000000,
+      'مصنع_إلكترونيات': 70000000,
+      'مصنع_بطاريات_ليثيوم': 22000000,
+      'محطة_طاقة_رياح': 40000000,
+      'منجم_الماس': 13500000,
+      'منجم_حديد': 3800000,
+      'مصايد_الأسماك': 5300000,
+      'مزرعة_الأرز': 2300000,
+      'محطة_كهرومائية': 32000000,
+      'محطة_نووية': 140000000
+    };
+
+    // دالة لحساب إجمالي الدخل اليومي باستخدام دخل الوحدة الثابت (أو المعدل عند تعديل المسؤول)
+    function computeTotalDailyIncome() {
+      let total = 0;
+      const assetRows = document.querySelectorAll('.asset-row');
+      assetRows.forEach(row => {
+        // نستخرج اسم الأصل من خاصية data-asset-name
+        const assetName = row.getAttribute('data-asset-name');
+        const quantity = parseFloat(row.querySelector('.assetQuantityInput').value) || 0;
+        // إذا كان هناك قيمة في حقل الدخل (قد يكون تم تعديله)، نستخدمها؛ وإن لم توجد نستخدم الثابت
+        let unitIncome = parseFloat(row.querySelector('.assetDailyIncomeInput').value);
+        if(isNaN(unitIncome)) {
+          unitIncome = fixedAssetIncomes[assetName] || 0;
+        }
+        total += quantity * unitIncome;
+      });
+      return total;
+    }
+
+    // جلب بيانات المستخدمين من فايرستور
+    async function fetchUsers() {
+      try {
+        const snapshot = await firestore.collection('users').get();
+        let users = [];
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          data.id = doc.id;
+          users.push(data);
+        });
+        return users;
+      } catch(error) {
+        console.error("Error fetching users: ", error);
+        return [];
+      }
+    }
+
+    // تعبئة قائمة الدول
+    function populateCountrySelect(users) {
+      const countrySelect = document.getElementById('countrySelect');
+      const countriesSet = new Set();
+      users.forEach(user => {
+        if(user.country) countriesSet.add(user.country);
+      });
+      countriesSet.forEach(country => {
+        const option = document.createElement('option');
+        option.value = country;
+        option.textContent = country;
+        countrySelect.appendChild(option);
+      });
+    }
+
+    // عرض نموذج تعديل بيانات الدولة مع جميع المعلومات
+    function displayUserInfoForCountry(users, country) {
+      const container = document.getElementById('userInfoContainer');
+      container.innerHTML = "";
+      const userData = users.find(u => u.country === country);
+      if(userData) {
+        const userId = userData.id;
+        database.ref('users/' + userId).once('value').then(snapshot => {
+          const rtData = snapshot.val() || {};
+          const balance = rtData.balance || 0;
+          // بيانات الأصول من القاعدة، نتوقع بنية { assetName: { quantity, dailyIncome } }
+          const assets = rtData.assets || {};
+
+          let assetsHtml = "";
+          // لكل أصل، نستخدم القيمة الثابتة للدخل من fixedAssetIncomes
+          Object.keys(assets).forEach(assetName => {
+            let assetData = assets[assetName];
+            let quantity = 0;
+            // القيمة الافتراضية للدخل هي القيمة الثابتة
+            let unitIncome = fixedAssetIncomes[assetName] || 0;
+            if (typeof assetData === "object" && assetData !== null) {
+              quantity = assetData.quantity || 0;
+              // إذا كانت موجودة قيمة مخزنة للدخل، نستخدمها؛ وإلا نستخدم الثابت
+              unitIncome = assetData.dailyIncome || unitIncome;
+            } else {
+              quantity = assetData;
+            }
+            assetsHtml += `
+              <div class="asset-row mb-4" data-asset-name="${assetName}">
+                <div class="mb-2">
+                  <label class="block font-bold">اسم الأصل:</label>
+                  <input type="text" class="assetNameInput w-full p-2 border border-gray-300 rounded" value="${assetName}" disabled />
+                </div>
+                <div class="mb-2">
+                  <label class="block font-bold">الكمية:</label>
+                  <input type="number" class="assetQuantityInput w-full p-2 border border-gray-300 rounded" value="${quantity}" />
+                </div>
+                <div class="mb-2">
+                  <label class="block font-bold">ربح يومي لكل وحدة:</label>
+                  <div class="flex items-center">
+                    <input type="number" class="assetDailyIncomeInput w-full p-2 border border-gray-300 rounded" value="${unitIncome}" disabled />
+                    <button type="button" class="editIncomeBtn ml-2 bg-yellow-500 text-white p-1 rounded">تعديل</button>
+                  </div>
+                </div>
+              </div>
+            `;
+          });
+
+          // نموذج التعديل مع زر "راتب"
+          container.innerHTML = `
+            <form id="editForm" class="space-y-4">
+              <div class="flex justify-between items-center">
+                <h2 class="text-xl font-bold">تعديل البيانات</h2>
+                <button type="button" id="salaryButton" class="bg-purple-500 text-white p-2 rounded">راتب</button>
+              </div>
+              <div>
+                <label class="block font-bold">اسم الرئيس:</label>
+                <input type="text" id="headNameInput" value="${userData.headName || ""}" class="w-full p-2 border border-gray-300 rounded" />
+              </div>
+              <div>
+                <label class="block font-bold">الدولة:</label>
+                <input type="text" id="countryInput" value="${userData.country || ""}" class="w-full p-2 border border-gray-300 rounded" />
+              </div>
+              <div>
+                <label class="block font-bold">الرصيد:</label>
+                <input type="number" id="balanceInput" value="${balance}" class="w-full p-2 border border-gray-300 rounded" />
+              </div>
+              <div>
+                <label class="block font-bold">الدخل اليومي الحالي:</label>
+                <p id="dailyIncomeDisplay" class="p-2 border border-gray-300 rounded bg-gray-50">
+                  ${computeTotalDailyIncome()}
+                </p>
+              </div>
+              <div id="assetsContainer">
+                <strong>الأصول:</strong>
+                ${assetsHtml}
+              </div>
+              <button type="button" id="addAssetButton" class="bg-green-500 text-white p-2 rounded">إضافة أصل جديد</button>
+              <button type="button" id="saveButton" class="bg-blue-500 text-white p-2 rounded">حفظ التعديلات</button>
+            </form>
+          `;
+
+          // تحديث عرض الدخل اليومي عند تغيير كمية الأصول
+          function updateDailyIncomeDisplay() {
+            document.getElementById('dailyIncomeDisplay').textContent = computeTotalDailyIncome();
+          }
+
+          // تفعيل زر "تعديل" للسماح بتعديل دخل الوحدة مؤقتاً
+          container.querySelectorAll('.editIncomeBtn').forEach(button => {
+            button.addEventListener('click', function() {
+              const input = this.closest('.asset-row').querySelector('.assetDailyIncomeInput');
+              if(input.disabled) {
+                input.disabled = false;
+                input.focus();
+                this.textContent = "تثبيت";
+              } else {
+                input.disabled = true;
+                this.textContent = "تعديل";
+              }
+              updateDailyIncomeDisplay();
+            });
+          });
+
+          // تحديث الدخل عند تغيير الكمية أو دخل الوحدة
+          container.querySelectorAll('.assetQuantityInput, .assetDailyIncomeInput').forEach(input => {
+            input.addEventListener('input', updateDailyIncomeDisplay);
+          });
+
+          // زر إضافة أصل جديد
+          document.getElementById('addAssetButton').addEventListener('click', function() {
+            const newRow = document.createElement('div');
+            newRow.classList.add('asset-row', 'mb-4');
+            // في حالة الأصل الجديد، لا يوجد دخل ثابت مسبقاً؛ فيمكن للمسؤول إدخاله
+            newRow.innerHTML = `
+              <div class="mb-2">
+                <label class="block font-bold">اسم الأصل:</label>
+                <input type="text" class="newAssetNameInput w-full p-2 border border-gray-300 rounded" placeholder="اسم الأصل الجديد" />
+              </div>
+              <div class="mb-2">
+                <label class="block font-bold">الكمية:</label>
+                <input type="number" class="assetQuantityInput w-full p-2 border border-gray-300 rounded" value="0" />
+              </div>
+              <div class="mb-2">
+                <label class="block font-bold">ربح يومي لكل وحدة:</label>
+                <div class="flex items-center">
+                  <input type="number" class="assetDailyIncomeInput w-full p-2 border border-gray-300 rounded" value="0" />
+                  <button type="button" class="editIncomeBtn ml-2 bg-yellow-500 text-white p-1 rounded">تعديل</button>
+                </div>
+              </div>
+            `;
+            document.getElementById('assetsContainer').appendChild(newRow);
+            newRow.querySelectorAll('.assetQuantityInput, .assetDailyIncomeInput').forEach(input => {
+              input.addEventListener('input', updateDailyIncomeDisplay);
+            });
+            newRow.querySelector('.editIncomeBtn').addEventListener('click', function() {
+              const input = this.closest('.asset-row').querySelector('.assetDailyIncomeInput');
+              if(input.disabled) {
+                input.disabled = false;
+                input.focus();
+                this.textContent = "تثبيت";
+              } else {
+                input.disabled = true;
+                this.textContent = "تعديل";
+              }
+              updateDailyIncomeDisplay();
+            });
+          });
+
+          // زر "حفظ التعديلات" لجمع البيانات وتحديث Firebase
+          document.getElementById('saveButton').addEventListener('click', async function() {
+            const newHeadName = document.getElementById('headNameInput').value;
+            const newCountry = document.getElementById('countryInput').value;
+            const newBalance = parseFloat(document.getElementById('balanceInput').value) || 0;
+            
+            // جمع بيانات الأصول من الصفوف
+            const assetRows = container.querySelectorAll('.asset-row');
+            let newAssets = {};
+            assetRows.forEach(row => {
+              let assetNameInput = row.querySelector('.assetNameInput');
+              if(!assetNameInput) {
+                assetNameInput = row.querySelector('.newAssetNameInput');
+              }
+              const assetName = assetNameInput.value.trim();
+              if(assetName !== "") {
+                const quantity = parseFloat(row.querySelector('.assetQuantityInput').value) || 0;
+                const unitIncome = parseFloat(row.querySelector('.assetDailyIncomeInput').value) || 0;
+                newAssets[assetName] = {
+                  quantity: quantity,
+                  dailyIncome: unitIncome
+                };
+              }
+            });
+            
+            try {
+              // تحديث بيانات رئيس الدولة والدولة في فايرستور
+              await firestore.collection('users').doc(userId).update({
+                headName: newHeadName,
+                country: newCountry
+              });
+              // تحديث الرصيد والأصول والدخل اليومي المحسوب في قاعدة البيانات الزمنية
+              await database.ref('users/' + userId).update({
+                balance: newBalance,
+                dailyIncome: computeTotalDailyIncome(),
+                assets: newAssets
+              });
+              alert('تم حفظ التعديلات بنجاح');
+            } catch(error) {
+              console.error("Error updating data: ", error);
+              alert('حدث خطأ أثناء حفظ التعديلات');
+            }
+          });
+
+          // زر "راتب": التحقق من مرور 24 ساعة ثم إضافة إجمالي الدخل اليومي إلى الرصيد
+          document.getElementById('salaryButton').addEventListener('click', function() {
+            const now = Date.now();
+            database.ref('users/' + userId + '/lastSalaryClaim').once('value').then(snapshot => {
+              let lastClaim = snapshot.val() || 0;
+              if(now - lastClaim < 24 * 60 * 60 * 1000) {
+                alert("يمكنك الضغط مرة كل 24 ساعة فقط");
+                return;
+              }
+              const totalDailyIncome = computeTotalDailyIncome();
+              if(totalDailyIncome <= 0) {
+                alert("لا يوجد دخل يومي لإضافته");
+                return;
+              }
+              let currentBalance = parseFloat(document.getElementById('balanceInput').value) || 0;
+              let newBalance = currentBalance + totalDailyIncome;
+              database.ref('users/' + userId).update({
+                balance: newBalance,
+                lastSalaryClaim: now
+              }).then(() => {
+                document.getElementById('balanceInput').value = newBalance;
+                alert("تم إضافة الراتب بنجاح");
+              });
+            });
+          });
+        });
+      } else {
+        container.innerHTML = "<p>لا توجد معلومات لهذه الدولة.</p>";
+      }
+    }
+
+    // عند اختيار دولة من القائمة
+    document.getElementById('countrySelect').addEventListener('change', async function() {
+      const selectedCountry = this.value;
+      if(selectedCountry) {
+        const users = await fetchUsers();
+        displayUserInfoForCountry(users, selectedCountry);
+      } else {
+        document.getElementById('userInfoContainer').innerHTML = "";
+      }
+    });
+
+    // التحقق من تسجيل الدخول
+    auth.onAuthStateChanged(async (user) => {
+      if(!user) window.location.href = "index.html";
+      else {
+        const users = await fetchUsers();
+        populateCountrySelect(users);
+      }
+    });
+  </script>
+</body>
+</html>
