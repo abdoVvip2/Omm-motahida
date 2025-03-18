@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>UN Social - نسخة مبسطة</title>
+  
+  <!-- استيراد خط Noto Sans Arabic -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;700&display=swap" rel="stylesheet">
+  
+  <!-- مكتبات Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+  
+  <!-- Font Awesome للأيقونات -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  
+  <!-- التصميم الجمالي الجديد -->
+  <style>
+    /* الخطوط والألوان الأساسية */
+    body {
+      font-family: 'Noto Sans Arabic', sans-serif;
+      background: #FFFFFF;
+      color: #2D3436;
+      margin: 0;
+      padding: 0;
+    }
+    /* الشريط العلوي */
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background: linear-gradient(135deg, #E8F4FD, #FFFFFF);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      padding: 1rem 0;
+      text-align: center;
+      z-index: 1000;
+    }
+    .nav-bar {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+    }
+    .nav-bar i {
+      font-size: 28px;
+      color: #B2BEC3;
+      transition: all 0.2s ease-in-out;
+      cursor: pointer;
+    }
+    .nav-bar i:hover, .nav-bar i.active {
+      color: #2A9DCC;
+    }
+    /* التطبيق الرئيسي */
+    #app {
+      background: #FFFFFF;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+      padding: 2rem;
+      margin: 120px auto 2rem; /* تأخير أعلى لعدم تغطية الشريط الثابت */
+      max-width: 800px;
+    }
+    .hidden {
+      display: none;
+    }
+    .section-title {
+      color: #2A9DCC;
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 2px solid #E8F4FD;
+      padding-bottom: 0.5rem;
+    }
+    /* واجهة المنشورات */
+    textarea {
+      background: #FFFFFF;
+      border: 2px solid #E8F4FD;
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 1rem;
+      width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 16px;
+    }
+    button {
+      background: #2A9DCC;
+      color: #FFFFFF;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 25px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+    }
+    button:hover {
+      opacity: 0.9;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(42,157,220,0.3);
+    }
+    .post {
+      background: #FFFFFF;
+      border: 1px solid #E8F4FD;
+      border-top: 3px solid #E8F4FD;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+      box-shadow: 0px 2px 8px rgba(0,0,0,0.1);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .post:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+    .post-header {
+      margin-bottom: 12px;
+    }
+    .post-header strong {
+      font-size: 1.2rem;
+    }
+    .country-info {
+      margin-top: 8px;
+      font-size: 0.9rem;
+      color: #636E72;
+    }
+    /* واجهة الرسائل */
+    select, input[type="text"] {
+      border: 2px solid #E8F4FD;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 1rem;
+      width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 16px;
+    }
+    .chat-box {
+      height: 400px;
+      overflow-y: auto;
+      background: #FFFFFF;
+      border: 1px solid #E8F4FD;
+      border-radius: 8px;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    .message {
+      background: #FFFFFF;
+      border-left: 3px solid #E8F4FD;
+      border-right: 3px solid #E8F4FD;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+      box-shadow: 0px 2px 8px rgba(0,0,0,0.1);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .message:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .message .recipient-info {
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      font-size: 1rem;
+    }
+    /* نص الترحيب */
+    #username {
+      font-size: 22px;
+      font-weight: bold;
+      color: #2A9DCC;
+    }
+    /* استجابة الشاشات الصغيرة */
+    @media (max-width: 600px) {
+      #app {
+        margin: 140px 1rem 2rem;
+        padding: 1rem;
+      }
+      .nav-bar {
+        gap: 20px;
+      }
+      .nav-bar i {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- الشريط العلوي مع أيقونات التنقل -->
+  <header>
+    <div class="nav-bar">
+      <i class="fas fa-newspaper" id="postsIcon" title="المنشورات"></i>
+      <i class="fas fa-comments" id="messagesIcon" title="الرسائل"></i>
+    </div>
+  </header>
+
+  <!-- التطبيق الرئيسي -->
+  <div id="app">
+    <h2>مرحبًا، <span id="username"></span></h2>
+    
+    <!-- قسم المنشورات -->
+    <section id="postsSection">
+      <h3 class="section-title">انشر منشوراً</h3>
+      <textarea id="postContent" placeholder="اكتب منشورك هنا..."></textarea>
+      <button id="postButton">نشر</button>
+      <hr>
+      <h3 class="section-title">المنشورات</h3>
+      <div id="posts"></div>
+    </section>
+
+    <!-- قسم الرسائل -->
+    <section id="messagesSection" class="hidden">
+      <h3 class="section-title">المحادثة</h3>
+      <!-- القائمة المنسدلة لتحديد جهة المحادثة -->
+      <select id="recipientSelect">
+        <option value="">اختر المستخدم للمحادثة</option>
+      </select>
+      <!-- عرض الرسائل الخاصة بالمحادثة -->
+      <div class="chat-box" id="messages"></div>
+      <!-- حقل لإرسال رسالة جديدة -->
+      <input type="text" id="messageInput" placeholder="اكتب رسالتك...">
+      <button id="sendMessageButton">إرسال</button>
+    </section>
+  </div>
+
+  <script>
+    // إعدادات Firebase
+    var firebaseConfig = {
+      apiKey: "AIzaSyD2lR-GIwXkmjb2D_kYumcYgXrUIZP6ASo",
+      authDomain: "professor-school-website.firebaseapp.com",
+      projectId: "professor-school-website",
+      storageBucket: "professor-school-website.firebasestorage.app",
+      messagingSenderId: "302841421596",
+      appId: "1:302841421596:web:1de713be7515ea22a3a4d9"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // قائمة الدول (code + name)
+    const countriesList = [
+      {code:"AF",name:"أفغانستان"},{code:"AL",name:"ألبانيا"},{code:"DZ",name:"الجزائر"},{code:"AD",name:"أندورا"},{code:"AO",name:"أنغولا"},
+      {code:"AR",name:"الأرجنتين"},{code:"AM",name:"أرمينيا"},{code:"AU",name:"أستراليا"},{code:"AT",name:"النمسا"},{code:"AZ",name:"أذربيجان"},
+      {code:"BH",name:"البحرين"},{code:"BD",name:"بنغلاديش"},{code:"BY",name:"بيلاروس"},{code:"BE",name:"بلجيكا"},{code:"BZ",name:"بليز"},
+      {code:"BJ",name:"بنين"},{code:"BT",name:"بوتان"},{code:"BO",name:"بوليفيا"},{code:"BA",name:"البوسنة والهرسك"},{code:"BW",name:"بوتسوانا"},
+      {code:"BR",name:"البرازيل"},{code:"BN",name:"بروناي"},{code:"BG",name:"بلغاريا"},{code:"BF",name:"بوركينا فاسو"},{code:"BI",name:"بوروندي"},
+      {code:"KH",name:"كمبوديا"},{code:"CM",name:"الكاميرون"},{code:"CA",name:"كندا"},{code:"CF",name:"جمهورية أفريقيا الوسطى"},{code:"TD",name:"تشاد"},
+      {code:"CL",name:"تشيلي"},{code:"CN",name:"الصين"},{code:"CO",name:"كولومبيا"},{code:"CR",name:"كوستاريكا"},{code:"CI",name:"ساحل العاج"},
+      {code:"HR",name:"كرواتيا"},{code:"CU",name:"كوبا"},{code:"CY",name:"قبرص"},{code:"CZ",name:"التشيك"},{code:"DK",name:"الدنمارك"},
+      {code:"DO",name:"جمهورية الدومينيكان"},{code:"EC",name:"الإكوادور"},{code:"EG",name:"مصر"},{code:"SV",name:"السلفادور"},{code:"EE",name:"إستونيا"}
+      // يمكن إضافة المزيد من الدول حسب الحاجة
+    ];
+
+    // دالة تحويل اسم الدولة إلى رمز الدولة (لأن Firestore يخزن الاسم)
+    function getCountryCodeByName(countryName) {
+      const found = countriesList.find(c => c.name === countryName);
+      return found ? found.code.toLowerCase() : "";
+    }
+
+    // دالة تحويل رمز الدولة إلى إيموجي (باستخدام رموز المؤشر الإقليمي)
+    function getFlagEmoji(countryCode) {
+      if (!countryCode) return "";
+      const codePoints = countryCode
+        .toUpperCase()
+        .split('')
+        .map(letter => 127397 + letter.charCodeAt());
+      return String.fromCodePoint(...codePoints);
+    }
+
+    // دالة حساب معرف المحادثة (يكون ثابتاً بين الطرفين)
+    function getConversationId(user1, user2) {
+      return (user1 < user2) ? user1 + "_" + user2 : user2 + "_" + user1;
+    }
+
+    // تغيير عرض الرسائل ليظهر فقط محادثة بين المستخدم الحالي والشخص المختار
+    function loadConversationMessages(){
+      const toUserId = recipientSelect.value;
+      const currentUser = auth.currentUser;
+      if (!toUserId) {
+        messagesContainer.innerHTML = "<p>اختر جهة للمحادثة لعرض الرسائل.</p>";
+        return;
+      }
+      const conversationId = getConversationId(currentUser.uid, toUserId);
+      db.collection('messages')
+        .where('conversationId', '==', conversationId)
+        .orderBy('timestamp', 'asc')
+        .onSnapshot(snapshot => {
+          let messagesHtml = "";
+          snapshot.forEach(doc => {
+            const msg = doc.data();
+            // إذا كان المرسل هو المستخدم الحالي نعرض "أنا" وإلا نعرض اسم المستقبل
+            const senderLabel = (msg.fromUserId === currentUser.uid) ? "أنا" : "";
+            messagesHtml += `
+              <div class="message">
+                <div class="recipient-info">
+                  <i class="fas fa-user"></i> 
+                  <strong>${senderLabel || "المُرسل"}</strong>
+                </div>
+                <p>${msg.text}</p>
+              </div>
+            `;
+          });
+          messagesContainer.innerHTML = messagesHtml;
+        });
+    }
+
+    // تحديث الرسائل عند تغيير جهة المحادثة
+    const recipientSelect = document.getElementById('recipientSelect');
+    recipientSelect.addEventListener('change', loadConversationMessages);
+
+    // التحكم في إظهار الأقسام (المنشورات/الرسائل)
+    const postsSection = document.getElementById('postsSection');
+    const messagesSection = document.getElementById('messagesSection');
+    const postsIcon = document.getElementById('postsIcon');
+    const messagesIcon = document.getElementById('messagesIcon');
+
+    postsIcon.addEventListener('click', () => {
+      postsSection.classList.remove('hidden');
+      messagesSection.classList.add('hidden');
+    });
+    messagesIcon.addEventListener('click', () => {
+      postsSection.classList.add('hidden');
+      messagesSection.classList.remove('hidden');
+      loadConversationMessages(); // تحديث الرسائل عند الدخول لقسم المحادثة
+    });
+
+    // عند تأكد تسجيل دخول المستخدم
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        // جلب بيانات المستخدم وعرض رسالة الترحيب مع إيموجي الدولة بجانب الاسم
+        db.collection('users').doc(user.uid).get().then(doc => {
+          if(doc.exists){
+            const userData = doc.data();
+            const countryCode = getCountryCodeByName(userData.country || "");
+            const emoji = getFlagEmoji(countryCode);
+            document.getElementById('username').innerText = (userData.headName || userData.email) + " " + emoji;
+          }
+        });
+        // تحميل المنشورات
+        loadPosts();
+        // جلب قائمة المستخدمين لملء القائمة المنسدلة (للمحادثة)
+        fetchUsersList();
+      } else {
+        alert("المستخدم غير مسجل الدخول!");
+      }
+    });
+
+    // قسم المنشورات
+    const postButton = document.getElementById('postButton');
+    const postContent = document.getElementById('postContent');
+    const postsContainer = document.getElementById('posts');
+
+    postButton.addEventListener('click', () => {
+      const content = postContent.value.trim();
+      const user = auth.currentUser;
+      if(user && content !== ""){
+        // جلب بيانات المستخدم للحصول على اسم الدولة (مثال: "مصر")
+        db.collection('users').doc(user.uid).get().then(doc => {
+          const userData = doc.data();
+          const userCountryName = userData.country || "";
+          const countryCode = getCountryCodeByName(userCountryName);
+          const emoji = getFlagEmoji(countryCode);
+          // إضافة المنشور إلى مجموعة posts
+          db.collection('posts').add({
+            content: content,
+            userId: user.uid,
+            userName: userData.headName || userData.email,
+            countryName: userCountryName,
+            emoji: emoji,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+          }).then(() => {
+            postContent.value = "";
+          });
+        });
+      }
+    });
+
+    function loadPosts(){
+      db.collection('posts').orderBy('timestamp', 'desc')
+      .onSnapshot(snapshot => {
+        let postsHtml = "";
+        snapshot.forEach(doc => {
+          const post = doc.data();
+          postsHtml += `
+            <div class="post">
+              <div class="post-header">
+                <strong>${post.userName || post.userId} ${post.emoji || ""}</strong>
+              </div>
+              <p>${post.content}</p>
+              <div class="country-info">
+                الدولة: ${post.countryName || "غير معروفة"}
+              </div>
+            </div>
+          `;
+        });
+        postsContainer.innerHTML = postsHtml;
+      });
+    }
+
+    // قسم الرسائل (إرسال رسالة ضمن المحادثة الخاصة)
+    const messageInput = document.getElementById('messageInput');
+    const sendMessageButton = document.getElementById('sendMessageButton');
+    const messagesContainer = document.getElementById('messages');
+
+    sendMessageButton.addEventListener('click', () => {
+      const message = messageInput.value.trim();
+      const toUserId = recipientSelect.value;
+      const fromUser = auth.currentUser;
+      if(fromUser && toUserId && message){
+        const conversationId = getConversationId(fromUser.uid, toUserId);
+        db.collection('messages').add({
+          text: message,
+          fromUserId: fromUser.uid,
+          toUserId: toUserId,
+          conversationId: conversationId,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(() => {
+          messageInput.value = "";
+        });
+      }
+    });
+
+    // جلب قائمة المستخدمين لملء القائمة المنسدلة
+    function fetchUsersList(){
+      db.collection("users").get().then(snapshot => {
+        recipientSelect.innerHTML = `<option value="">اختر المستخدم للمحادثة</option>`;
+        snapshot.forEach(doc => {
+          const userData = doc.data();
+          const option = document.createElement('option');
+          option.value = doc.id;
+          option.text = userData.headName || userData.email;
+          recipientSelect.appendChild(option);
+        });
+      });
+    }
+  </script>
+</body>
+</html>

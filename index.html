@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>تسجيل دخول للامم متحدة</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/3.5.0/css/flag-icon.min.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/particles.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #e0f7ff;
+      font-family: Arial, sans-serif;
+      overflow-x: hidden;
+      position: relative;
+      min-height: 100vh;
+    }
+    .background {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: url('https://upload.wikimedia.org/wikipedia/commons/e/e9/United_Nations_Headquarters.jpg') center center / cover no-repeat;
+      z-index: -4;
+      animation: bgMove 30s linear infinite;
+      opacity: 0.5;
+    }
+    @keyframes bgMove {
+      from { transform: scale(1) translateY(0); }
+      to { transform: scale(1.05) translateY(-20px); }
+    }
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(224, 247, 255, 0.3);
+      z-index: -3;
+    }
+    #particles-js {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -2;
+    }
+    .container {
+      background: #ffffff;
+      border: 1px solid #ADD8E6;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 20px;
+      width: 320px;
+      margin: 40px auto;
+      color: #333;
+    }
+    h2 {
+      text-align: center;
+      color: #333;
+    }
+    input, select, button {
+      font-size: 14px;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ADD8E6;
+      border-radius: 4px;
+      color: #333;
+    }
+    button {
+      background-color: #004866;
+      color: #fff;
+      border: none;
+      padding: 10px;
+      width: 100%;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #003652;
+    }
+    .toggle-link {
+      text-align: center;
+      margin-top: 10px;
+      font-size: 14px;
+      cursor: pointer;
+      color: #333;
+    }
+    .error {
+      color: red;
+      text-align: center;
+      font-size: 14px;
+    }
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.75);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    }
+    .modal-content {
+      background: #fff;
+      border-radius: 8px;
+      padding: 20px;
+      width: 90%;
+      max-width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+      color: #333;
+    }
+    .modal .close-btn {
+      text-align: right;
+      font-size: 20px;
+      cursor: pointer;
+      color: #333;
+    }
+    .search-bar {
+      display: flex;
+      align-items: center;
+      margin: 10px 0;
+      border: 1px solid #ADD8E6;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .search-bar input {
+      flex: 1;
+      border: none;
+      padding: 8px;
+      outline: none;
+      font-size: 14px;
+    }
+    .search-bar i {
+      padding: 8px;
+      background: #ADD8E6;
+      color: #fff;
+    }
+    .flag-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+    }
+    @media (max-width: 600px) {
+      .flag-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+    .flag-item {
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.3s;
+    }
+    .flag-item:hover {
+      transform: translateY(-3px);
+    }
+    .flag-item .country-name {
+      font-size: 12px;
+      margin-top: 5px;
+      color: #333;
+    }
+    #modalError {
+      color: red;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="background"></div>
+  <div class="overlay"></div>
+  <div id="particles-js"></div>
+  <div id="signup-container" class="container">
+    <h2>إنشاء حساب</h2>
+    <button id="openCountryModal" style="background:#fff;color:#333;border:1px solid #ADD8E6;" onclick="openModal()">
+      اختر دولتك <i class="flag-icon flag-icon-us" id="selectedFlag" style="margin-right:5px;"></i>
+      <span id="selectedCountryText">لم يتم الاختيار</span>
+    </button>
+    <input type="email" id="signupEmail" placeholder="البريد الإلكتروني" required>
+    <input type="text" id="headName" placeholder="اسم الرئيس" required>
+    <input type="password" id="signupPassword" placeholder="كلمة المرور" required>
+    <button onclick="signUp()">إنشاء الحساب</button>
+    <div class="error" id="signupError"></div>
+    <div class="toggle-link" onclick="showLogin()">لديك حساب؟ تسجيل الدخول</div>
+  </div>
+  <div id="login-container" class="container" style="display:none;">
+    <h2>تسجيل الدخول</h2>
+    <input type="email" id="loginEmail" placeholder="البريد الإلكتروني" required>
+    <input type="password" id="loginPassword" placeholder="كلمة المرور" required>
+    <button onclick="signIn()">الدخول</button>
+    <div class="error" id="loginError"></div>
+    <div class="toggle-link" onclick="showSignUp()">إنشاء حساب جديد</div>
+  </div>
+  <div id="countryModal" class="modal">
+    <div class="modal-content">
+      <div class="close-btn" onclick="closeModal()">✖</div>
+      <div id="modalError"></div>
+      <div class="search-bar">
+        <i class="fa fa-search"></i>
+        <input type="text" id="searchInput" placeholder="ابحث عن دولتك" onkeyup="filterCountries()">
+      </div>
+      <div class="flag-grid" id="flagGrid"></div>
+    </div>
+  </div>
+  <script>
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyD2lR-GIwXkmjb2D_kYumcYgXrUIZP6ASo",
+      authDomain: "professor-school-website.firebaseapp.com",
+      projectId: "professor-school-website",
+      storageBucket: "professor-school-website.firebasestorage.app",
+      messagingSenderId: "302841421596",
+      appId: "1:302841421596:web:1de713be7515ea22a3a4d9"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // Particle background setup
+    particlesJS('particles-js',{
+      "particles":{
+        "number":{"value":80,"density":{"enable":true,"value_area":800}},
+        "color":{"value":"#ffffff"},
+        "shape":{"type":"circle"},
+        "opacity":{"value":0.5},
+        "size":{"value":3,"random":true},
+        "line_linked":{"enable":true,"distance":150,"color":"#ffffff","opacity":0.4,"width":1},
+        "move":{"enable":true,"speed":4,"direction":"none","random":false,"straight":false,"out_mode":"out"}
+      },
+      "interactivity":{
+        "detect_on":"canvas",
+        "events":{"onhover":{"enable":true,"mode":"grab"},"onclick":{"enable":true,"mode":"push"}},
+        "modes":{"grab":{"distance":140,"line_linked":{"opacity":1}},"push":{"particles_nb":4}}
+      },
+      "retina_detect":true
+    });
+
+    // Automatically show login container if account exists (using localStorage flag)
+    window.onload = function() {
+      if(localStorage.getItem("hasAccount") === "true") {
+        document.getElementById("signup-container").style.display = "none";
+        document.getElementById("login-container").style.display = "block";
+      }
+    };
+
+    // Country list for modal
+    const countries = [
+      {code:"AF",name:"أفغانستان"},{code:"AL",name:"ألبانيا"},{code:"DZ",name:"الجزائر"},{code:"AD",name:"أندورا"},{code:"AO",name:"أنغولا"},
+      {code:"AR",name:"الأرجنتين"},{code:"AM",name:"أرمينيا"},{code:"AU",name:"أستراليا"},{code:"AT",name:"النمسا"},{code:"AZ",name:"أذربيجان"},
+      {code:"BH",name:"البحرين"},{code:"BD",name:"بنغلاديش"},{code:"BY",name:"بيلاروس"},{code:"BE",name:"بلجيكا"},{code:"BZ",name:"بليز"},
+      {code:"BJ",name:"بنين"},{code:"BT",name:"بوتان"},{code:"BO",name:"بوليفيا"},{code:"BA",name:"البوسنة والهرسك"},{code:"BW",name:"بوتسوانا"},
+      {code:"BR",name:"البرازيل"},{code:"BN",name:"بروناي"},{code:"BG",name:"بلغاريا"},{code:"BF",name:"بوركينا فاسو"},{code:"BI",name:"بوروندي"},
+      {code:"KH",name:"كمبوديا"},{code:"CM",name:"الكاميرون"},{code:"CA",name:"كندا"},{code:"CF",name:"جمهورية أفريقيا الوسطى"},{code:"TD",name:"تشاد"},
+      {code:"CL",name:"تشيلي"},{code:"CN",name:"الصين"},{code:"CO",name:"كولومبيا"},{code:"CR",name:"كوستاريكا"},{code:"CI",name:"ساحل العاج"},
+      {code:"HR",name:"كرواتيا"},{code:"CU",name:"كوبا"},{code:"CY",name:"قبرص"},{code:"CZ",name:"التشيك"},{code:"DK",name:"الدنمارك"},
+      {code:"DO",name:"جمهورية الدومينيكان"},{code:"EC",name:"الإكوادور"},{code:"EG",name:"مصر"},{code:"SV",name:"السلفادور"},{code:"EE",name:"إستونيا"},
+      {code:"ET",name:"إثيوبيا"},{code:"FJ",name:"فيجي"},{code:"FI",name:"فنلندا"},{code:"FR",name:"فرنسا"},{code:"GE",name:"جورجيا"},
+      {code:"DE",name:"ألمانيا"},{code:"GH",name:"غانا"},{code:"GR",name:"اليونان"},{code:"GT",name:"غواتيمالا"},{code:"HN",name:"هندوراس"},
+      {code:"HU",name:"المجر"},{code:"IS",name:"أيسلندا"},{code:"IN",name:"الهند"},{code:"ID",name:"إندونيسيا"},{code:"IR",name:"إيران"},
+      {code:"IQ",name:"العراق"},{code:"IE",name:"أيرلندا"},{code:"PS",name:"فلسطين"},{code:"IT",name:"إيطاليا"},{code:"JP",name:"اليابان"},
+      {code:"JO",name:"الأردن"},{code:"KZ",name:"كازاخستان"},{code:"KE",name:"كينيا"},{code:"KR",name:"كوريا الجنوبية"},{code:"KW",name:"الكويت"},
+      {code:"KG",name:"قيرغيزستان"},{code:"LA",name:"لاوس"},{code:"LV",name:"لاتفيا"},{code:"LB",name:"لبنان"},{code:"LT",name:"ليتوانيا"},
+      {code:"LU",name:"لوكسمبورغ"},{code:"MY",name:"ماليزيا"},{code:"MV",name:"جزر المالديف"},{code:"MT",name:"مالطا"},{code:"MX",name:"المكسيك"},
+      {code:"MD",name:"مولدوفا"},{code:"MC",name:"موناكو"},{code:"MN",name:"منغوليا"},{code:"ME",name:"الجبل الأسود"},{code:"MA",name:"المغرب"},
+      {code:"MZ",name:"موزمبيق"},{code:"MM",name:"ميانمار"},{code:"NA",name:"ناميبيا"},{code:"NP",name:"نيبال"},{code:"NL",name:"هولندا"},
+      {code:"NZ",name:"نيوزيلندا"},{code:"NI",name:"نيكاراغوا"},{code:"NG",name:"نيجيريا"},{code:"NO",name:"النرويج"},{code:"OM",name:"عُمان"},
+      {code:"PK",name:"باكستان"},{code:"PA",name:"بنما"},{code:"PG",name:"بابوا غينيا الجديدة"},{code:"PY",name:"باراغواي"},{code:"PE",name:"بيرو"},
+      {code:"PH",name:"الفلبين"},{code:"PL",name:"بولندا"},{code:"PT",name:"البرتغال"},{code:"QA",name:"قطر"},{code:"RO",name:"رومانيا"},
+      {code:"RU",name:"روسيا"},{code:"RW",name:"رواندا"},{code:"SA",name:"المملكة العربية السعودية"},{code:"SN",name:"السنغال"},{code:"RS",name:"صربيا"},
+      {code:"SC",name:"سيشل"},{code:"SL",name:"سيراليون"},{code:"SG",name:"سنغافورة"},{code:"SK",name:"سلوفاكيا"},{code:"SI",name:"سلوفينيا"},
+      {code:"SB",name:"جزر سليمان"},{code:"SO",name:"الصومال"},{code:"ZA",name:"جنوب أفريقيا"},{code:"ES",name:"إسبانيا"},{code:"LK",name:"سريلانكا"},
+      {code:"SD",name:"السودان"},{code:"SR",name:"سورينام"},{code:"SE",name:"السويد"},{code:"CH",name:"سويسرا"},{code:"SY",name:"سوريا"},
+      {code:"TW",name:"تايوان"},{code:"TJ",name:"طاجيكستان"},{code:"TZ",name:"تنزانيا"},{code:"TH",name:"تايلاند"},{code:"TL",name:"تيمور الشرقية"},
+      {code:"TG",name:"توغو"},{code:"TO",name:"تونغا"},{code:"TT",name:"ترينيداد وتوباغو"},{code:"TN",name:"تونس"},{code:"TR",name:"تركيا"},
+      {code:"TM",name:"تركمانستان"},{code:"UG",name:"أوغندا"},{code:"UA",name:"أوكرانيا"},{code:"AE",name:"الإمارات العربية المتحدة"},{code:"GB",name:"المملكة المتحدة"},
+      {code:"US",name:"الولايات المتحدة"},{code:"UY",name:"أوروغواي"},{code:"UZ",name:"أوزبكستان"},{code:"VU",name:"فانواتو"},{code:"VA",name:"الفاتيكان"},
+      {code:"VE",name:"فنزويلا"},{code:"VN",name:"فيتنام"},{code:"YE",name:"اليمن"},{code:"ZM",name:"زامبيا"},{code:"ZW",name:"زيمبابوي"}
+    ];
+    function populateFlagGrid(){
+      const flagGrid = document.getElementById("flagGrid");
+      flagGrid.innerHTML = "";
+      countries.forEach(country => {
+        const flagDiv = document.createElement("div");
+        flagDiv.className = "flag-item";
+        flagDiv.setAttribute("data-code", country.code);
+        flagDiv.setAttribute("data-name", country.name);
+        flagDiv.onclick = () => selectCountry(country);
+        flagDiv.innerHTML = `<span class="flag-icon flag-icon-${country.code.toLowerCase()}" style="font-size:48px;"></span>
+                             <div class="country-name">${country.name}</div>`;
+        flagGrid.appendChild(flagDiv);
+      });
+    }
+    populateFlagGrid();
+    function openModal(){
+      document.getElementById("countryModal").style.display = "flex";
+      document.getElementById("modalError").textContent = "";
+    }
+    function closeModal(){
+      document.getElementById("countryModal").style.display = "none";
+    }
+    async function selectCountry(country){
+      document.getElementById("modalError").textContent = "";
+      try{
+        const docSnap = await db.collection("lockedCountries").doc(country.name).get();
+        if(docSnap.exists){
+          document.getElementById("modalError").textContent = "يا جحش يا حمار يا كلب يا اعمى هذه دولة ماخوذة خذ غيرها لا افطر عليك لو انت رئيسها سجل دخول مش تنشا حساب يا جحش";
+        } else {
+          document.getElementById("selectedCountryText").innerText = country.name;
+          document.getElementById("selectedFlag").className = "flag-icon flag-icon-" + country.code.toLowerCase();
+          closeModal();
+        }
+      } catch(e) {
+        console.error(e);
+      }
+    }
+    function showLogin(){
+      document.getElementById("signup-container").style.display = "none";
+      document.getElementById("login-container").style.display = "block";
+    }
+    function showSignUp(){
+      // إذا كان المستخدم أنشأ حساباً مسبقاً، لا نعرض له واجهة إنشاء الحساب
+      if(localStorage.getItem("hasAccount") === "true"){
+        document.getElementById("signup-container").style.display = "none";
+        document.getElementById("login-container").style.display = "block";
+      } else {
+        document.getElementById("login-container").style.display = "none";
+        document.getElementById("signup-container").style.display = "block";
+        populateFlagGrid();
+      }
+    }
+    async function signUp(){
+      const countryName = document.getElementById("selectedCountryText").innerText;
+      const email = document.getElementById("signupEmail").value;
+      const headName = document.getElementById("headName").value;
+      const password = document.getElementById("signupPassword").value;
+      const errorDiv = document.getElementById("signupError");
+      errorDiv.textContent = "";
+      if(!countryName || countryName === "لم يتم الاختيار" || !email || !headName || !password){
+        errorDiv.textContent = "الرجاء ملء جميع الحقول واختيار دولة.";
+        return;
+      }
+      try{
+        const lockedDoc = await db.collection("lockedCountries").doc(countryName).get();
+        if(lockedDoc.exists){
+          errorDiv.textContent = "يا جحش يا حمار يا كلب يا اعمى هذه دولة ماخوذة خذ غيرها لا افطر عليك لو انت رئيسها سجل دخول مش تنشا حساب يا جحش";
+          return;
+        }
+      } catch(e) {
+        console.error(e);
+      }
+      try{
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+        await db.collection("users").doc(user.uid).set({
+          email: email,
+          headName: headName,
+          country: countryName
+        });
+        await db.collection("lockedCountries").doc(countryName).set({
+          locked: true,
+          userId: user.uid
+        });
+        // حفظ علامة إنشاء الحساب لمنع إعادة إنشاء الحساب
+        localStorage.setItem("hasAccount", "true");
+        alert("تم إنشاء الحساب بنجاح!");
+      } catch(e) {
+        errorDiv.textContent = e.message;
+      }
+    }
+    async function signIn(){
+      const email = document.getElementById("loginEmail").value;
+      const password = document.getElementById("loginPassword").value;
+      const errorDiv = document.getElementById("loginError");
+      errorDiv.textContent = "";
+      try{
+        await auth.signInWithEmailAndPassword(email, password);
+        window.location.href = "home.html";
+      } catch(e) {
+        errorDiv.textContent = e.message;
+      }
+    }
+    function filterCountries(){
+      const input = document.getElementById("searchInput").value.toLowerCase();
+      const flagItems = document.querySelectorAll(".flag-item");
+      flagItems.forEach(item => {
+        const countryName = item.querySelector(".country-name").innerText.toLowerCase();
+        item.style.display = countryName.includes(input) ? "block" : "none";
+      });
+    }
+  </script>
+</body>
+</html>
